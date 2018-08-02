@@ -1,0 +1,1335 @@
+{
+    "$connections": {
+        "value": {
+            "azureblob": {
+                "connectionId": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Web/connections/azureblob-1",
+                "connectionName": "azureblob-1",
+                "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/providers/Microsoft.Web/locations/eastus/managedApis/azureblob"
+            },
+            "azuretables": {
+                "connectionId": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Web/connections/azuretables-3",
+                "connectionName": "azuretables-3",
+                "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/providers/Microsoft.Web/locations/eastus/managedApis/azuretables"
+            }
+        }
+    },
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "For_Each_AW_Record": {
+                "actions": {
+                    "Compare_lastPolledAt_with_last_updated_at": {
+                        "actions": {
+                            "Condition_ConstituentID_Empty": {
+                                "actions": {
+                                    "Insert_ConstituentID_Empty": {
+                                        "inputs": {
+                                            "body": {
+                                                "Call": "Search for ConstituentID by email",
+                                                "ErrorMessage": "@concat('The constituent ', body('Parse_Body')?['user_display_name'], ' was not found.')",
+                                                "PartitionKey": "@variables('fundName')",
+                                                "RowKey": "@guid()"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            }
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_constituentProblem_to_True_1": {
+                                        "inputs": {
+                                            "name": "constituentProblem",
+                                            "value": "@true"
+                                        },
+                                        "runAfter": {
+                                            "Insert_ConstituentID_Empty": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@empty(body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'])",
+                                                "@true"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_ConstituentID_by_Email": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_ConstituentID_Multiple_Records": {
+                                "actions": {
+                                    "Condition_duplicateConstituents_is_true": {
+                                        "actions": {
+                                            "Insert_ConstituentID_Multiple_Records": {
+                                                "inputs": {
+                                                    "body": {
+                                                        "Call": "Search for ConstituentID by email",
+                                                        "ErrorMessage": "@concat('The email ', body('Parse_Body')?['user_email'], ' has duplicates.')",
+                                                        "PartitionKey": "@variables('fundName')",
+                                                        "RowKey": "@guid()"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                                    "retryPolicy": {
+                                                        "type": "none"
+                                                    }
+                                                },
+                                                "runAfter": {},
+                                                "type": "ApiConnection"
+                                            },
+                                            "Set_constituentProblem_to_True_2": {
+                                                "inputs": {
+                                                    "name": "constituentProblem",
+                                                    "value": "@true"
+                                                },
+                                                "runAfter": {
+                                                    "Insert_ConstituentID_Multiple_Records": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            }
+                                        },
+                                        "expression": {
+                                            "and": [
+                                                {
+                                                    "equals": [
+                                                        "@variables('duplicateConstituents')",
+                                                        "@true"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "runAfter": {
+                                            "Until_end_of_array": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "If"
+                                    },
+                                    "Set_duplicateConstituents_to_false": {
+                                        "inputs": {
+                                            "name": "duplicateConstituents",
+                                            "value": "@false"
+                                        },
+                                        "runAfter": {},
+                                        "type": "SetVariable"
+                                    },
+                                    "Until_end_of_array": {
+                                        "actions": {
+                                            "Compose_Curr_Row": {
+                                                "inputs": "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'][variables('emailIDRowNumber')]",
+                                                "runAfter": {},
+                                                "type": "Compose"
+                                            },
+                                            "Compose_Next_Row": {
+                                                "inputs": "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'][add(variables('emailIDRowNumber'), 1)]",
+                                                "runAfter": {
+                                                    "Compose_Curr_Row": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Compose"
+                                            },
+                                            "Condition_": {
+                                                "actions": {
+                                                    "Set_duplicateConstituents_to_true": {
+                                                        "inputs": {
+                                                            "name": "duplicateConstituents",
+                                                            "value": true
+                                                        },
+                                                        "runAfter": {},
+                                                        "type": "SetVariable"
+                                                    }
+                                                },
+                                                "expression": {
+                                                    "and": [
+                                                        {
+                                                            "not": {
+                                                                "equals": [
+                                                                    "@body('Parse_JSON_2')?['cONSTITUENTID']",
+                                                                    "@body('Parse_JSON')?['cONSTITUENTID']"
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                "runAfter": {
+                                                    "Parse_JSON_2": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "If"
+                                            },
+                                            "Parse_JSON": {
+                                                "inputs": {
+                                                    "content": "@outputs('Compose_Curr_Row')",
+                                                    "schema": {
+                                                        "properties": {
+                                                            "cONSTITUENTID": {
+                                                                "type": "string"
+                                                            },
+                                                            "iD": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Compose_Next_Row": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ParseJson"
+                                            },
+                                            "Parse_JSON_2": {
+                                                "inputs": {
+                                                    "content": "@outputs('Compose_Next_Row')",
+                                                    "schema": {
+                                                        "properties": {
+                                                            "cONSTITUENTID": {
+                                                                "type": "string"
+                                                            },
+                                                            "iD": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Parse_JSON": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ParseJson"
+                                            }
+                                        },
+                                        "expression": "@equals(variables('emailIDRowNumber'), sub(1, length(body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'])))",
+                                        "limit": {
+                                            "count": 60,
+                                            "timeout": "PT1H"
+                                        },
+                                        "runAfter": {
+                                            "Set_duplicateConstituents_to_false": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Until"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "greater": [
+                                                "@length(body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'])",
+                                                1
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_ConstituentID_by_Email": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_ConstituentID_Search_Error": {
+                                "actions": {
+                                    "Insert_ConstituentID_Search_Error": {
+                                        "inputs": {
+                                            "body": {
+                                                "Call": "Search for ConstituentID by email",
+                                                "PartitionKey": "@variables('fundName')",
+                                                "RowKey": "@guid()",
+                                                "StatusCode": "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['statusCode']",
+                                                "StatusMessage": "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['statusMessage']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            }
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_constituentProblem_to_True_3": {
+                                        "inputs": {
+                                            "name": "constituentProblem",
+                                            "value": "@true"
+                                        },
+                                        "runAfter": {
+                                            "Insert_ConstituentID_Search_Error": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "greaterOrEquals": [
+                                                "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['statusCode']",
+                                                400
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_ConstituentID_by_Email": [
+                                        "Failed",
+                                        "Skipped"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_FundraisingPurposeID_Empty": {
+                                "actions": {
+                                    "Insert_FundraisingPurposeID_Empty": {
+                                        "inputs": {
+                                            "body": {
+                                                "Call": "Search for FundraisingPurposeID by Name",
+                                                "ErrorMessage": "@concat('The fund ', body('Parse_Body')?['portfolio_name'], ' does not exist')",
+                                                "PartitionKey": "@variables('fundName')",
+                                                "RowKey": "@guid()"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            }
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_fundraisingProblem_to_True_6": {
+                                        "inputs": {
+                                            "name": "fundraisingProblem",
+                                            "value": "@true"
+                                        },
+                                        "runAfter": {
+                                            "Insert_FundraisingPurposeID_Empty": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@empty(body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['rows'])",
+                                                "@true"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_FundraisingPurposeID_by_Name": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_FundraisingPurposeID_Multiple_Records": {
+                                "actions": {
+                                    "Insert_FundraisingPurposeID_Multiple_Records": {
+                                        "inputs": {
+                                            "body": {
+                                                "Call": "Search for FundraisingPurposeID by Name",
+                                                "ErrorMessage": "@concat('The fund ', body('Parse_Body')?['portfolio_name'], ' has duplicates.')",
+                                                "PartitionKey": "@variables('fundName')",
+                                                "RowKey": "@guid()"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            }
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_fundraisingProblem_to_True_5": {
+                                        "inputs": {
+                                            "name": "fundraisingProblem",
+                                            "value": "@true"
+                                        },
+                                        "runAfter": {
+                                            "Insert_FundraisingPurposeID_Multiple_Records": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "greater": [
+                                                "@length(body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['rows'])",
+                                                1
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_FundraisingPurposeID_by_Name": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_FundraisingPurposeID_Search_Error": {
+                                "actions": {
+                                    "Insert_FundraisingPurposeID_Search_Error": {
+                                        "inputs": {
+                                            "body": {
+                                                "Call": "Search for FundraisingPurposeID by Name",
+                                                "PartitionKey": "@variables('fundName')",
+                                                "RowKey": "@guid()",
+                                                "StatusCode": "@body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['statusCode']",
+                                                "StatusMessage": "@body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['statusMessage']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            }
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_fundraisingProblem_to_True_4": {
+                                        "inputs": {
+                                            "name": "fundraisingProblem",
+                                            "value": "@true"
+                                        },
+                                        "runAfter": {
+                                            "Insert_FundraisingPurposeID_Search_Error": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "greaterOrEquals": [
+                                                "@body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['statusCode']",
+                                                400
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Search_for_FundraisingPurposeID_by_Name": [
+                                        "Failed",
+                                        "Skipped"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_No_Problems_Exist": {
+                                "actions": {
+                                    "Fundraising_Purpose_Recipient_Post": {
+                                        "inputs": {
+                                            "body": {
+                                                "saveDataRequest": {
+                                                    "contextRecordID": "@body('Parse_Fundraising_Purpose')?['iD']",
+                                                    "recordData": {
+                                                        "aMOUNT": "@body('Parse_Body')?['disbursement_amount']",
+                                                        "cONSTITUENTID": "@body('Parse_Constituent')?['cONSTITUENTID']",
+                                                        "dATE": "@variables('date')"
+                                                    }
+                                                }
+                                            },
+                                            "headers": {
+                                                "Ocp-Apim-Subscription-Key": "0abd1b61e817401abd5e361fec0d33bb"
+                                            },
+                                            "method": "post",
+                                            "retryPolicy": {
+                                                "type": "none"
+                                            },
+                                            "uri": "http://jentsan.azure-api.net/fundraising/fundraisingpurposerecipients"
+                                        },
+                                        "metadata": {
+                                            "apiDefinitionUrl": "https://jentsan.portal.azure-api.net/docs/services/fundraising/export?DocumentFormat=Swagger",
+                                            "swaggerSource": "custom"
+                                        },
+                                        "runAfter": {},
+                                        "type": "Http"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@variables('constituentProblem')",
+                                                "@false"
+                                            ]
+                                        },
+                                        {
+                                            "equals": [
+                                                "@variables('fundraisingProblem')",
+                                                "@false"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "educational-history-search": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_Problem_Exists_After_ConstituentID": {
+                                "actions": {},
+                                "else": {
+                                    "actions": {
+                                        "Parse_Constituent": {
+                                            "inputs": {
+                                                "content": "@outputs('Save_ConstituentID_Info')",
+                                                "schema": {
+                                                    "properties": {
+                                                        "cONSTITUENTID": {
+                                                            "type": "string"
+                                                        },
+                                                        "iD": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Save_ConstituentID_Info": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ParseJson"
+                                        },
+                                        "Save_ConstituentID_Info": {
+                                            "inputs": "@body('Search_for_ConstituentID_by_Email')?['searchReply']?['rows'][0]",
+                                            "runAfter": {},
+                                            "type": "Compose"
+                                        }
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@variables('constituentProblem')",
+                                                "@true"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Condition_ConstituentID_Empty": [
+                                        "Succeeded"
+                                    ],
+                                    "Condition_ConstituentID_Multiple_Records": [
+                                        "Succeeded"
+                                    ],
+                                    "Condition_ConstituentID_Search_Error": [
+                                        "Succeeded",
+                                        "Skipped"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Condition_Problem_Exists_After_FundraisingPurposeID": {
+                                "actions": {},
+                                "else": {
+                                    "actions": {
+                                        "Parse_Fundraising_Purpose": {
+                                            "inputs": {
+                                                "content": "@outputs('Save_Fundraising_Purpose_Info')",
+                                                "schema": {
+                                                    "properties": {
+                                                        "category": {
+                                                            "type": "string"
+                                                        },
+                                                        "dESIGNATIONREPORTCODE1ID": {
+                                                            "type": "string"
+                                                        },
+                                                        "dESIGNATIONREPORTCODE2ID": {
+                                                            "type": "string"
+                                                        },
+                                                        "iD": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "sITE": {
+                                                            "type": "string"
+                                                        },
+                                                        "type": {
+                                                            "type": "string"
+                                                        },
+                                                        "uSERID": {
+                                                            "type": "string"
+                                                        },
+                                                        "vANITYNAME": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Save_Fundraising_Purpose_Info": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ParseJson"
+                                        },
+                                        "Save_Fundraising_Purpose_Info": {
+                                            "inputs": "@body('Search_for_FundraisingPurposeID_by_Name')?['searchReply']?['rows'][0]",
+                                            "runAfter": {},
+                                            "type": "Compose"
+                                        }
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@variables('fundraisingProblem')",
+                                                "@true"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Condition_FundraisingPurposeID_Empty": [
+                                        "Succeeded"
+                                    ],
+                                    "Condition_FundraisingPurposeID_Multiple_Records": [
+                                        "Succeeded"
+                                    ],
+                                    "Condition_FundraisingPurposeID_Search_Error": [
+                                        "Succeeded",
+                                        "Skipped"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Insert_Entity_into_awLogs": {
+                                "inputs": {
+                                    "body": {
+                                        "ConstituentID": "@body('Parse_Constituent')?['cONSTITUENTID']",
+                                        "ConstituentName": "@body('Parse_Body')?['user_display_name']",
+                                        "FundID": "@body('Parse_Fundraising_Purpose')?['iD']",
+                                        "PartitionKey": "@variables('fundName')",
+                                        "RecordID": "@body('Fundraising_Purpose_Recipient_Post')?['saveDataReply']?['recordID']",
+                                        "RowKey": "@guid()",
+                                        "WasPolledBefore": "false"
+                                    },
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                        }
+                                    },
+                                    "method": "post",
+                                    "path": "/Tables/@{encodeURIComponent('awLogs')}/entities",
+                                    "retryPolicy": {
+                                        "type": "none"
+                                    }
+                                },
+                                "runAfter": {
+                                    "Condition_No_Problems_Exist": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection"
+                            },
+                            "Parse_Constituent_LookupID": {
+                                "inputs": {
+                                    "content": "@outputs('Save_Constituent_LookupID_Info')",
+                                    "schema": {
+                                        "properties": {
+                                            "aDDRESS": {
+                                                "type": "string"
+                                            },
+                                            "cITY": {
+                                                "type": "string"
+                                            },
+                                            "cONSTITUENTTYPE": {
+                                                "type": "string"
+                                            },
+                                            "gIVESANONYMOUSLY": {
+                                                "type": "boolean"
+                                            },
+                                            "iD": {
+                                                "type": "string"
+                                            },
+                                            "iSGROUP": {
+                                                "type": "boolean"
+                                            },
+                                            "iSHOUSEHOLD": {
+                                                "type": "boolean"
+                                            },
+                                            "iSORGANIZATION": {
+                                                "type": "boolean"
+                                            },
+                                            "lOOKUPID": {
+                                                "type": "string"
+                                            },
+                                            "nAME": {
+                                                "type": "string"
+                                            },
+                                            "pOSTCODE": {
+                                                "type": "string"
+                                            },
+                                            "sORTCONSTITUENTNAME": {
+                                                "type": "string"
+                                            },
+                                            "sTATE": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "runAfter": {
+                                    "Save_Constituent_LookupID_Info": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ParseJson"
+                            },
+                            "Save_Constituent_LookupID_Info": {
+                                "inputs": "@body('Search_for_Constituent_LookupID_by_Name')?['searchReply']?['rows'][0]",
+                                "runAfter": {
+                                    "Search_for_Constituent_LookupID_by_Name": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose"
+                            },
+                            "Search_for_ConstituentID_by_Email": {
+                                "inputs": {
+                                    "headers": {
+                                        "Ocp-Apim-Subscription-Key": "0abd1b61e817401abd5e361fec0d33bb"
+                                    },
+                                    "method": "get",
+                                    "retryPolicy": {
+                                        "type": "none"
+                                    },
+                                    "uri": "http://jentsan.azure-api.net/SearchService/blackbaud_appfx_server_bizops/Search/@{encodeURIComponent(body('Parse_Body')?['user_email'])}"
+                                },
+                                "metadata": {
+                                    "apiDefinitionUrl": "https://jentsan.portal.azure-api.net/docs/services/e931d589beea416f8e02dc1a3843f0e7/export?DocumentFormat=Swagger",
+                                    "swaggerSource": "custom"
+                                },
+                                "runAfter": {
+                                    "Condition_Problem_Exists_After_FundraisingPurposeID": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Http"
+                            },
+                            "Search_for_Constituent_LookupID_by_Name": {
+                                "inputs": {
+                                    "headers": {
+                                        "Ocp-Apim-Subscription-Key": "0abd1b61e817401abd5e361fec0d33bb"
+                                    },
+                                    "method": "get",
+                                    "retryPolicy": {
+                                        "type": "none"
+                                    },
+                                    "uri": "http://jentsan.azure-api.net/constituent-search-by-name/blackbaud_appfx_server_bizops/Search/@{encodeURIComponent(body('Parse_Body')?['user_display_name'])}"
+                                },
+                                "metadata": {
+                                    "apiDefinitionUrl": "https://jentsan.portal.azure-api.net/docs/services/constituent-search-by-name/export?DocumentFormat=Swagger",
+                                    "swaggerSource": "custom"
+                                },
+                                "runAfter": {
+                                    "Condition_Problem_Exists_After_ConstituentID": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Http"
+                            },
+                            "Search_for_FundraisingPurposeID_by_Name": {
+                                "inputs": {
+                                    "body": {
+                                        "searchRequest": {
+                                            "criteria": {
+                                                "cOMBINEDSEARCH": "@body('Parse_Body')?['portfolio_name']"
+                                            }
+                                        }
+                                    },
+                                    "headers": {
+                                        "Ocp-Apim-Subscription-Key": "0abd1b61e817401abd5e361fec0d33bb"
+                                    },
+                                    "method": "post",
+                                    "retryPolicy": {
+                                        "type": "none"
+                                    },
+                                    "uri": "http://jentsan.azure-api.net/fundraising-purpose-search-clone/blackbaud_appfx_server_bizops/Search/"
+                                },
+                                "metadata": {
+                                    "apiDefinitionUrl": "https://jentsan.portal.azure-api.net/docs/services/5b3b5fa93cc8537bfa60a1b9/export?DocumentFormat=Swagger",
+                                    "swaggerSource": "custom"
+                                },
+                                "runAfter": {},
+                                "type": "Http"
+                            },
+                            "educational-history-search": {
+                                "inputs": {
+                                    "headers": {
+                                        "Ocp-Apim-Subscription-Key": "0abd1b61e817401abd5e361fec0d33bb"
+                                    },
+                                    "method": "get",
+                                    "retryPolicy": {
+                                        "type": "none"
+                                    },
+                                    "uri": "http://jentsan.azure-api.net/fundraising/@{encodeURIComponent(body('Parse_Constituent_LookupID')?['lOOKUPID'])}/educationalhistorysearch"
+                                },
+                                "metadata": {
+                                    "apiDefinitionUrl": "https://jentsan.portal.azure-api.net/docs/services/fundraising/export?DocumentFormat=Swagger",
+                                    "swaggerSource": "custom"
+                                },
+                                "runAfter": {
+                                    "Parse_Constituent_LookupID": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Http"
+                            }
+                        },
+                        "else": {
+                            "actions": {
+                                "Insert_Entity": {
+                                    "inputs": {
+                                        "body": {
+                                            "PartitionKey": "@variables('fundName')",
+                                            "RowKey": "@guid()",
+                                            "WasPolledBefore": "true"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/Tables/@{encodeURIComponent('awLogs')}/entities",
+                                        "retryPolicy": {
+                                            "type": "none"
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "type": "ApiConnection"
+                                }
+                            }
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "less": [
+                                        "@variables('lastPolledAt')",
+                                        "@body('Parse_Body')?['last_updated_at']"
+                                    ]
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "Set_constituentProblem_to_False": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "Compose_Body": {
+                        "inputs": "@items('For_Each_AW_Record')",
+                        "runAfter": {},
+                        "type": "Compose"
+                    },
+                    "Condition_if_'_in_fundName": {
+                        "actions": {
+                            "Set_variable_2": {
+                                "inputs": {
+                                    "name": "fundName",
+                                    "value": "@{replace(body('Parse_Body')?['portfolio_name'],'''','')}"
+                                },
+                                "runAfter": {},
+                                "type": "SetVariable"
+                            }
+                        },
+                        "else": {
+                            "actions": {
+                                "Set_variable_3": {
+                                    "inputs": {
+                                        "name": "fundName",
+                                        "value": "@body('Parse_Body')?['portfolio_name']"
+                                    },
+                                    "runAfter": {},
+                                    "type": "SetVariable"
+                                }
+                            }
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "equals": [
+                                        "@contains(body('Parse_Body')?['portfolio_name'],'''')",
+                                        "@true"
+                                    ]
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "Parse_Body": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "Parse_Body": {
+                        "inputs": {
+                            "content": "@outputs('Compose_Body')",
+                            "schema": {
+                                "properties": {
+                                    "disbursement_amount": {
+                                        "type": "number"
+                                    },
+                                    "last_updated_at": {
+                                        "type": "string"
+                                    },
+                                    "opportunity_start_at": {
+                                        "type": "string"
+                                    },
+                                    "portfolio_name": {
+                                        "type": "string"
+                                    },
+                                    "user_display_name": {
+                                        "type": "string"
+                                    },
+                                    "user_email": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "runAfter": {
+                            "Compose_Body": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ParseJson"
+                    },
+                    "Set_constituentProblem_to_False": {
+                        "inputs": {
+                            "name": "constituentProblem",
+                            "value": "@false"
+                        },
+                        "runAfter": {
+                            "Set_fundraisingProblem_to_False": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "SetVariable"
+                    },
+                    "Set_fundraisingProblem_to_False": {
+                        "inputs": {
+                            "name": "fundraisingProblem",
+                            "value": "@false"
+                        },
+                        "runAfter": {
+                            "Condition_if_'_in_fundName": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "SetVariable"
+                    }
+                },
+                "foreach": "@body('Parse_AW_Return')",
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "concurrency": {
+                        "repetitions": 1
+                    }
+                },
+                "type": "Foreach"
+            },
+            "Get_blob_content": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azureblob']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent(triggerBody()?['blob']))}/content",
+                    "queries": {
+                        "inferContentType": true
+                    }
+                },
+                "runAfter": {
+                    "Initialize_fundName": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Get_entities_from_awErrors": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuretables']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/Tables/@{encodeURIComponent('awErrors')}/entities"
+                },
+                "runAfter": {
+                    "For_Each_AW_Record": [
+                        "Succeeded",
+                        "Failed",
+                        "Skipped"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Get_entities_from_awLogs": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuretables']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/Tables/@{encodeURIComponent('awLogs')}/entities"
+                },
+                "runAfter": {
+                    "Get_entities_from_awErrors": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Initialize_constituentIDCount": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "constituentIDCount",
+                            "type": "Integer",
+                            "value": 0
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_duplicateConstituents": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_constituentProblem": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "constituentProblem",
+                            "type": "Boolean",
+                            "value": "@false"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_fundraisingProblem": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_date": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "date",
+                            "type": "String"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_guid": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_duplicateConstituents": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "duplicateConstituents",
+                            "type": "Boolean"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_constituentProblem": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_educationalHistoryID": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "educationalHistoryID",
+                            "type": "String",
+                            "value": "00000000-0000-0000-0000-000000000000"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_date": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_fundName": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "fundName",
+                            "type": "String"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_constituentIDCount": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_fundraisingProblem": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "fundraisingProblem",
+                            "type": "Boolean",
+                            "value": "@false"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_lastPolledAt": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_guid": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "constituentID",
+                            "type": "String"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_lookupID": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_lastPolledAt": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "lastPolledAt",
+                            "type": "String",
+                            "value": "2014-05-26T08:13:00.000Z"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_educationalHistoryID": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_lookupID": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "lookupID",
+                            "type": "String"
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "emailIDRowNumber",
+                            "type": "Integer",
+                            "value": 0
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Parse_AW_Return": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Parse_AW_Return": {
+                "inputs": {
+                    "content": "@json(body('Get_blob_content'))",
+                    "schema": {
+                        "items": {
+                            "properties": {
+                                "disbursement_amount": {
+                                    "type": "number"
+                                },
+                                "last_updated_at": {
+                                    "type": "string"
+                                },
+                                "opportunity_start_at": {
+                                    "type": "string"
+                                },
+                                "portfolio_name": {
+                                    "type": "string"
+                                },
+                                "user_display_name": {
+                                    "type": "string"
+                                },
+                                "user_email": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "disbursement_amount",
+                                "portfolio_name",
+                                "user_display_name",
+                                "user_email",
+                                "opportunity_start_at",
+                                "last_updated_at"
+                            ],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    }
+                },
+                "runAfter": {
+                    "Get_blob_content": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ParseJson"
+            },
+            "Response": {
+                "inputs": {
+                    "schema": {
+                        "successful": true
+                    },
+                    "statusCode": 200
+                },
+                "kind": "Http",
+                "runAfter": {
+                    "Get_entities_from_awLogs": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Response"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "manual": {
+                "inputs": {
+                    "schema": {
+                        "properties": {
+                            "blob": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "kind": "Http",
+                "type": "Request"
+            }
+        }
+    }
+}

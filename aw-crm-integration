@@ -1,0 +1,373 @@
+{
+    "$connections": {
+        "value": {
+            "azureblob_1": {
+                "connectionId": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Web/connections/azureblob-1",
+                "connectionName": "azureblob-1",
+                "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/providers/Microsoft.Web/locations/eastus/managedApis/azureblob"
+            },
+            "azuretables": {
+                "connectionId": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Web/connections/azuretables-3",
+                "connectionName": "azuretables-3",
+                "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/providers/Microsoft.Web/locations/eastus/managedApis/azuretables"
+            }
+        }
+    },
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Get_blob_content_2": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM='))}/content",
+                    "queries": {
+                        "inferContentType": true
+                    }
+                },
+                "metadata": {
+                    "JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM=": "/testblob/awRecords"
+                },
+                "runAfter": {
+                    "Until": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Initialize_body": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "body",
+                            "type": "String"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_pageCounter": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_pageCounter": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "pageCounter",
+                            "type": "Integer",
+                            "value": 1
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "blobContent",
+                            "type": "String",
+                            "value": "@{body('Get_blob_content_2')}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Get_blob_content_2": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Until": {
+                "actions": {
+                    "Condition": {
+                        "actions": {},
+                        "else": {
+                            "actions": {
+                                "Get_blob_content": {
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                            }
+                                        },
+                                        "method": "get",
+                                        "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM='))}/content",
+                                        "queries": {
+                                            "inferContentType": true
+                                        }
+                                    },
+                                    "metadata": {
+                                        "JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM=": "/testblob/awRecords"
+                                    },
+                                    "runAfter": {
+                                        "Parse_AW_Return": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                },
+                                "Parse_AW_Return": {
+                                    "inputs": {
+                                        "content": "@body('HTTP')",
+                                        "schema": {
+                                            "items": {
+                                                "properties": {
+                                                    "disbursement_amount": {
+                                                        "type": "number"
+                                                    },
+                                                    "last_updated_at": {
+                                                        "type": "string"
+                                                    },
+                                                    "opportunity_start_at": {
+                                                        "type": "string"
+                                                    },
+                                                    "portfolio_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "user_display_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "user_email": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "disbursement_amount",
+                                                    "portfolio_name",
+                                                    "user_display_name",
+                                                    "user_email",
+                                                    "opportunity_start_at",
+                                                    "last_updated_at"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "type": "ParseJson"
+                                },
+                                "Update_blob": {
+                                    "inputs": {
+                                        "body": "@{body('Get_blob_content')}@{body('HTTP')}",
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                            }
+                                        },
+                                        "method": "put",
+                                        "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM='))}"
+                                    },
+                                    "metadata": {
+                                        "JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM=": "/testblob/awRecords"
+                                    },
+                                    "runAfter": {
+                                        "Get_blob_content": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection"
+                                }
+                            }
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "equals": [
+                                        "@string(body('HTTP'))",
+                                        "[]"
+                                    ]
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "Increment_pageCounter": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "HTTP": {
+                        "inputs": {
+                            "method": "GET",
+                            "uri": "https://alania.academicworks.com/api/v1/disbursements.json?page=@{variables('pageCounter')}&sort_at=last_updated_at&per_page=1000&fields=disbursement_amount,portfolio_name,user_display_name,user_email,opportunity_start_at,last_updated_at&token=955600869e8aa05e566c6392c96d9268d8736f395eeff394e09334c6825123d4"
+                        },
+                        "runAfter": {},
+                        "type": "Http"
+                    },
+                    "Increment_pageCounter": {
+                        "inputs": {
+                            "name": "pageCounter",
+                            "value": 1
+                        },
+                        "runAfter": {
+                            "HTTP": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "IncrementVariable"
+                    },
+                    "Insert_AW_Call_Error_in_awErrors": {
+                        "inputs": {
+                            "body": {
+                                "PartitionKey": "AW call error",
+                                "RowKey": "@guid()",
+                                "StatusCode": "@outputs('HTTP')['statusCode']"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/Tables/@{encodeURIComponent('awErrors')}/entities"
+                        },
+                        "runAfter": {
+                            "HTTP": [
+                                "Failed"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Insert_AW_Call_Error_in_awLogs": {
+                        "inputs": {
+                            "body": {
+                                "PartitionKey": "AW call error",
+                                "RowKey": "@guid()",
+                                "StatusCode": "@outputs('HTTP')['statusCode']"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azuretables']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/Tables/@{encodeURIComponent('awLogs')}/entities"
+                        },
+                        "runAfter": {
+                            "Insert_AW_Call_Error_in_awErrors": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    }
+                },
+                "expression": "@equals(string(body('HTTP')), '[]')",
+                "limit": {
+                    "timeout": "PT1H"
+                },
+                "runAfter": {
+                    "Update_blob_2": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Until"
+            },
+            "Update_blob_2": {
+                "inputs": {
+                    "body": "@variables('body')",
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                        }
+                    },
+                    "method": "put",
+                    "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM='))}"
+                },
+                "metadata": {
+                    "JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM=": "/testblob/awRecords"
+                },
+                "runAfter": {
+                    "Initialize_body": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Update_blob_3": {
+                "inputs": {
+                    "body": "@replace(variables('blobContent'), '][', ',')",
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                        }
+                    },
+                    "method": "put",
+                    "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM='))}"
+                },
+                "metadata": {
+                    "JTJmdGVzdGJsb2IlMmZhd1JlY29yZHM=": "/testblob/awRecords"
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "bbcrm-aw-production": {
+                "inputs": {
+                    "body": {
+                        "blob": "@body('Update_blob_3')?['Path']"
+                    },
+                    "host": {
+                        "triggerName": "manual",
+                        "workflow": {
+                            "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Logic/workflows/bbcrm-aw-production"
+                        }
+                    }
+                },
+                "runAfter": {
+                    "polling-app-bbcrm-draft-2": [
+                        "Failed"
+                    ]
+                },
+                "type": "Workflow"
+            },
+            "polling-app-bbcrm-draft-2": {
+                "inputs": {
+                    "body": {
+                        "blob": "@body('Update_blob_3')?['Path']"
+                    },
+                    "host": {
+                        "triggerName": "manual",
+                        "workflow": {
+                            "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Logic/workflows/polling-app-bbcrm-draft-2"
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Update_blob_3": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Workflow"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "Recurrence": {
+                "recurrence": {
+                    "frequency": "Month",
+                    "interval": 3
+                },
+                "type": "Recurrence"
+            }
+        }
+    }
+}
