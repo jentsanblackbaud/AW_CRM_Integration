@@ -313,7 +313,7 @@
                 },
                 "type": "ApiConnection"
             },
-            "bbcrm-aw-production": {
+            "process-aw-records": {
                 "inputs": {
                     "body": {
                         "blob": "@body('Update_blob_3')?['Path']"
@@ -321,26 +321,7 @@
                     "host": {
                         "triggerName": "manual",
                         "workflow": {
-                            "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Logic/workflows/bbcrm-aw-production"
-                        }
-                    }
-                },
-                "runAfter": {
-                    "polling-app-bbcrm-draft-2": [
-                        "Failed"
-                    ]
-                },
-                "type": "Workflow"
-            },
-            "polling-app-bbcrm-draft-2": {
-                "inputs": {
-                    "body": {
-                        "blob": "@body('Update_blob_3')?['Path']"
-                    },
-                    "host": {
-                        "triggerName": "manual",
-                        "workflow": {
-                            "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Logic/workflows/polling-app-bbcrm-draft-2"
+                            "id": "/subscriptions/e0e5801f-e2c4-4a08-b855-9574b8a244ae/resourceGroups/interns/providers/Microsoft.Logic/workflows/process-aw-records"
                         }
                     }
                 },
